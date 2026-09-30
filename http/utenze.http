@@ -1,0 +1,129 @@
+# Test manuali degli endpoint Utenze.
+# Uso: VS Code con l'estensione "REST Client" (humao.rest-client), oppure
+# IntelliJ/WebStorm (supporto nativo). Clicca "Send Request" sopra ogni richiesta.
+#
+# Prerequisiti: server avviato (npm run dev) e ruoli di prova caricati
+# (npm run seed → ruoli 1 Dipendente, 2 Commerciale, 3 HR, 4 Amministratore).
+# Esegui le richieste in ordine: le successive usano l'id dell'utenza creata.
+
+@base = http://localhost:3000
+
+### Health check
+GET {{base}}/health
+
+### 1. Crea utenza (stato iniziale sempre "attivo")
+# @name crea
+POST {{base}}/utenze
+Content-Type: application/json
+
+{
+  "username": "mrossi",
+  "nome": "Mario",
+  "cognome": "Rossi",
+  "email": "mario.rossi@example.com"
+}
+
+### id dell'utenza appena creata, usato nelle richieste successive
+@id = {{crea.response.body.$.id}}
+
+### 2. Elenco utenze con stato corrente
+GET {{base}}/utenze
+
+### 3. Dettaglio: anagrafica + ruoli + permessi derivati
+GET {{base}}/utenze/{{id}}
+
+### 4. Assegna ruoli (Dipendente + Commerciale)
+POST {{base}}/utenze/{{id}}/ruoli
+Content-Type: application/json
+
+{ "ruoloIds": [1, 2] }
+
+### 5. Dettaglio dopo l'assegnazione: permessi univoci con "tramite"
+GET {{base}}/utenze/{{id}}
+
+### 6. Modifica anagrafica (anche parziale)
+PUT {{base}}/utenze/{{id}}
+Content-Type: application/json
+
+{ "cognome": "Rossi Bianchi", "email": "mario.rossibianchi@example.com" }
+
+### 7. Rimuovi il ruolo Commerciale
+DELETE {{base}}/utenze/{{id}}/ruoli/2
+
+### 8. Riassegna Commerciale + HR prima del deprovisioning
+POST {{base}}/utenze/{{id}}/ruoli
+Content-Type: application/json
+
+{ "ruoloIds": [2, 3] }
+
+### 9. Deprovisiona: risponde con ruoli rimossi e permessi persi
+POST {{base}}/utenze/{{id}}/deprovisiona
+
+### 10. Cancellazione fisica (risponde 204 senza body)
+DELETE {{base}}/utenze/{{id}}
+
+
+###############################################################
+# Casi di errore
+###############################################################
+
+### Crea una seconda utenza per i test di unicità
+# @name crea2
+POST {{base}}/utenze
+Content-Type: application/json
+
+{
+  "username": "lverdi",
+  "nome": "Luigi",
+  "cognome": "Verdi",
+  "email": "luigi.verdi@example.com"
+}
+
+### 409: username già in uso
+POST {{base}}/utenze
+Content-Type: application/json
+
+{
+  "username": "lverdi",
+  "nome": "Altro",
+  "cognome": "Utente",
+  "email": "altro@example.com"
+}
+
+### 409: email già in uso (il confronto ignora le maiuscole)
+POST {{base}}/utenze
+Content-Type: application/json
+
+{
+  "username": "altro",
+  "nome": "Altro",
+  "cognome": "Utente",
+  "email": "Luigi.Verdi@example.com"
+}
+
+### 400: campi mancanti ed email non valida
+POST {{base}}/utenze
+Content-Type: application/json
+
+{ "username": "x", "email": "non-una-email" }
+
+### 400: lo stato non si modifica con PUT (si usa /deprovisiona)
+PUT {{base}}/utenze/{{crea2.response.body.$.id}}
+Content-Type: application/json
+
+{ "stato": "attivo" }
+
+### 404: ruolo inesistente
+POST {{base}}/utenze/{{crea2.response.body.$.id}}/ruoli
+Content-Type: application/json
+
+{ "ruoloIds": [999] }
+
+### 404: utenza inesistente
+GET {{base}}/utenze/999999
+
+### 400: id non valido
+GET {{base}}/utenze/abc
+
+### Pulizia: elimina la seconda utenza
+DELETE {{base}}/utenze/{{crea2.response.body.$.id}}
