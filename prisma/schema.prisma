@@ -1,0 +1,59 @@
+// Schema dati del tool di deprovisioning IAM (vedi SPEC.md, "Modello dati")
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum StatoUtenza {
+  attivo
+  sospeso
+  deprovisioned
+}
+
+enum OrigineUtenza {
+  manuale
+  import
+}
+
+model Utenza {
+  id            Int           @id @default(autoincrement())
+  username      String        @unique
+  nome          String
+  cognome       String
+  email         String        @unique
+  stato         StatoUtenza   @default(attivo)
+  dataCreazione DateTime      @default(now()) @map("data_creazione")
+  origine       OrigineUtenza @default(manuale)
+
+  // Utenza <-> Ruolo: molti-a-molti (implicita)
+  ruoli Ruolo[]
+
+  @@map("utenze")
+}
+
+model Ruolo {
+  id             Int     @id @default(autoincrement())
+  nome           String  @unique
+  descrizione    String?
+  creatoDaImport Boolean @default(false) @map("creato_da_import")
+
+  utenze   Utenza[]
+  // Ruolo <-> Permesso: molti-a-molti (implicita)
+  permessi Permesso[]
+
+  @@map("ruoli")
+}
+
+model Permesso {
+  id          Int     @id @default(autoincrement())
+  nome        String
+  descrizione String?
+
+  ruoli Ruolo[]
+
+  @@map("permessi")
+}
