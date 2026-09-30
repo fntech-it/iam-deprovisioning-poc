@@ -2,6 +2,7 @@ const express = require('express');
 const prisma = require('./db');
 const { HttpError } = require('./errori');
 const utenzeRouter = require('./routes/utenze');
+const ruoliRouter = require('./routes/ruoli');
 
 const app = express();
 
@@ -28,6 +29,7 @@ app.get('/health', async (req, res) => {
 });
 
 app.use('/utenze', utenzeRouter);
+app.use('/ruoli', ruoliRouter);
 
 app.use((req, res) => {
   res.status(404).json({ errore: `Rotta non trovata: ${req.method} ${req.path}` });
@@ -43,7 +45,7 @@ app.use((err, req, res, next) => {
   }
   // Vincolo di unicità violato in concorrenza (dopo il controllo applicativo)
   if (err.code === 'P2002') {
-    return res.status(409).json({ errore: 'Username o email già in uso' });
+    return res.status(409).json({ errore: 'Valore già in uso (vincolo di unicità)' });
   }
   if (err.code === 'P2025') {
     return res.status(404).json({ errore: 'Record non trovato' });

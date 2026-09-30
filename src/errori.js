@@ -16,4 +16,16 @@ function parseId(valore, nome = 'id') {
   return id;
 }
 
-module.exports = { HttpError, parseId };
+// Valida un array di id nel body (es. "ruoloIds") e lo restituisce senza duplicati
+function parseIdArray(valore, nome) {
+  if (
+    !Array.isArray(valore) ||
+    valore.length === 0 ||
+    !valore.every((id) => Number.isInteger(id) && id > 0)
+  ) {
+    throw new HttpError(400, `"${nome}" deve essere un array non vuoto di id interi positivi`);
+  }
+  return [...new Set(valore)];
+}
+
+module.exports = { HttpError, parseId, parseIdArray };

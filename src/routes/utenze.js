@@ -1,6 +1,6 @@
 const express = require('express');
 const prisma = require('../db');
-const { HttpError, parseId } = require('../errori');
+const { HttpError, parseId, parseIdArray } = require('../errori');
 const { permessiDerivati } = require('../permessi');
 
 const router = express.Router();
@@ -158,16 +158,7 @@ router.put('/:id', async (req, res) => {
 // POST /utenze/:id/ruoli — assegna uno o più ruoli. Body: { "ruoloIds": [1, 2] }
 router.post('/:id/ruoli', async (req, res) => {
   const id = parseId(req.params.id);
-  const ruoloIds = req.body?.ruoloIds;
-
-  if (
-    !Array.isArray(ruoloIds) ||
-    ruoloIds.length === 0 ||
-    !ruoloIds.every((r) => Number.isInteger(r) && r > 0)
-  ) {
-    throw new HttpError(400, '"ruoloIds" deve essere un array non vuoto di id interi positivi');
-  }
-  const idUnivoci = [...new Set(ruoloIds)];
+  const idUnivoci = parseIdArray(req.body?.ruoloIds, 'ruoloIds');
 
   const utenza = await trovaUtenza(id);
   if (utenza.stato === 'deprovisioned') {

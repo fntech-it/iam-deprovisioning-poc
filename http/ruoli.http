@@ -1,0 +1,98 @@
+# Test manuali degli endpoint Ruoli.
+# Uso: VS Code con l'estensione "REST Client" (humao.rest-client), oppure
+# IntelliJ/WebStorm (supporto nativo). Clicca "Send Request" sopra ogni richiesta.
+#
+# Prerequisiti: server avviato (npm run dev) e dati di prova caricati
+# (npm run seed → permessi 1 posta.lettura, 2 posta.invio, 3 crm.lettura,
+# 4 crm.scrittura, 5 hr.anagrafica, 6 admin.sistema).
+# Esegui le richieste in ordine: le successive usano gli id creati.
+
+@base = http://localhost:3000
+
+### 1. Elenco ruoli con permessi, badge creatoDaImport e numero di utenze assegnate
+GET {{base}}/ruoli
+
+### 2. Crea ruolo (creatoDaImport sempre false)
+# @name crea
+POST {{base}}/ruoli
+Content-Type: application/json
+
+{ "nome": "Contabilità", "descrizione": "Ufficio amministrazione" }
+
+### id del ruolo appena creato, usato nelle richieste successive
+@id = {{crea.response.body.$.id}}
+
+### 3. Dettaglio: permessi e utenze assegnate
+GET {{base}}/ruoli/{{id}}
+
+### 4. Modifica nome e/o descrizione
+PUT {{base}}/ruoli/{{id}}
+Content-Type: application/json
+
+{ "descrizione": "Amministrazione e contabilità" }
+
+### 5. Assegna permessi (posta.lettura, posta.invio, crm.lettura)
+POST {{base}}/ruoli/{{id}}/permessi
+Content-Type: application/json
+
+{ "permessoIds": [1, 2, 3] }
+
+### 6. Rimuovi il permesso crm.lettura
+DELETE {{base}}/ruoli/{{id}}/permessi/3
+
+### 7. Crea un'utenza e assegnale il ruolo, per provare l'avviso di eliminazione
+# @name utenza
+POST {{base}}/utenze
+Content-Type: application/json
+
+{ "username": "gbianchi", "nome": "Giulia", "cognome": "Bianchi", "email": "giulia.bianchi@example.com" }
+
+###
+POST {{base}}/utenze/{{utenza.response.body.$.id}}/ruoli
+Content-Type: application/json
+
+{ "ruoloIds": [{{id}}] }
+
+### 8. Elimina: 409 con avviso, perché il ruolo è assegnato a un'utenza attiva
+DELETE {{base}}/ruoli/{{id}}
+
+### 9. Elimina confermando: 204, l'utenza perde il ruolo
+DELETE {{base}}/ruoli/{{id}}?conferma=true
+
+### 10. Verifica: l'utenza non ha più il ruolo
+GET {{base}}/utenze/{{utenza.response.body.$.id}}
+
+### Pulizia: elimina l'utenza di prova
+DELETE {{base}}/utenze/{{utenza.response.body.$.id}}
+
+
+###############################################################
+# Casi di errore
+###############################################################
+
+### 409: nome già in uso (il confronto ignora le maiuscole)
+POST {{base}}/ruoli
+Content-Type: application/json
+
+{ "nome": "dipendente" }
+
+### 400: nome mancante
+POST {{base}}/ruoli
+Content-Type: application/json
+
+{ "descrizione": "senza nome" }
+
+### 400: creatoDaImport non è impostabile (lo valorizza solo l'import CSV)
+POST {{base}}/ruoli
+Content-Type: application/json
+
+{ "nome": "Test", "creatoDaImport": true }
+
+### 404: permesso inesistente
+POST {{base}}/ruoli/1/permessi
+Content-Type: application/json
+
+{ "permessoIds": [999] }
+
+### 404: ruolo inesistente
+GET {{base}}/ruoli/999999
